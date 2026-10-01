@@ -79,66 +79,77 @@ var Engine = (function(global) {
      */
     function update(dt) {
         updateEntities(dt);
-        // checkCollisions();
+        if (typeof nukeEffectTimer !== 'undefined' && nukeEffectTimer > 0) {
+            nukeEffectTimer -= dt;
+            if (nukeEffectTimer <= 0) {
+                nukeActive = false;
+            }
+        }
+        if (typeof flashTimer !== 'undefined' && flashTimer > 0) {
+            flashTimer -= dt;
+        }
     }
 
-    /* This is called by the update function and loops through all of the
-     * objects within your allEnemies array as defined in app.js and calls
-     * their update() methods. It will then call the update function for your
-     * player object. These update methods should focus purely on updating
-     * the data/properties related to the object. Do your drawing in your
-     * render methods.
-     */
     function updateEntities(dt) {
         allEnemies.forEach(function(enemy) {
             enemy.update(dt);
         });
-        player.update();
+        player.update(dt);
     }
 
-    /* This function initially draws the "game level", it will then call
-     * the renderEntities function. Remember, this function is called every
-     * game tick (or loop of the game engine) because that's how games work -
-     * they are flipbooks creating the illusion of animation but in reality
-     * they are just drawing the entire screen over and over.
-     */
     function render() {
-        /* This array holds the relative URL to the image used
-         * for that particular row of the game level.
-         */
-        var rowImages = [
-                'images/water-block.png',   // Top row is water
-                'images/stone-block.png',   // Row 1 of 3 of stone
-                'images/stone-block.png',   // Row 2 of 3 of stone
-                'images/stone-block.png',   // Row 3 of 3 of stone
-                'images/grass-block.png',   // Row 1 of 2 of grass
-                'images/grass-block.png'    // Row 2 of 2 of grass
-            ],
+        // Level-specific environments
+        var levelMaps = [
+            ['images/water-block.png', 'images/stone-block.png', 'images/stone-block.png', 'images/stone-block.png', 'images/grass-block.png', 'images/grass-block.png'],
+            ['images/water-block.png', 'images/grass-block.png', 'images/stone-block.png', 'images/stone-block.png', 'images/stone-block.png', 'images/grass-block.png'],
+            ['images/water-block.png', 'images/stone-block.png', 'images/grass-block.png', 'images/stone-block.png', 'images/stone-block.png', 'images/grass-block.png'],
+            ['images/water-block.png', 'images/stone-block.png', 'images/stone-block.png', 'images/grass-block.png', 'images/stone-block.png', 'images/stone-block.png'],
+            ['images/water-block.png', 'images/stone-block.png', 'images/stone-block.png', 'images/stone-block.png', 'images/stone-block.png', 'images/stone-block.png'],
+        ];
+
+        var rowImages = levelMaps[typeof currentLevel !== 'undefined' ? Math.min(currentLevel - 1, 4) : 0],
             numRows = 6,
             numCols = 5,
             row, col;
         
-        // Before drawing, clear existing canvas
-        ctx.clearRect(0,0,canvas.width,canvas.height)
+        ctx.clearRect(0,0,canvas.width,canvas.height);
 
-        /* Loop through the number of rows and columns we've defined above
-         * and, using the rowImages array, draw the correct image for that
-         * portion of the "grid"
-         */
         for (row = 0; row < numRows; row++) {
             for (col = 0; col < numCols; col++) {
-                /* The drawImage function of the canvas' context element
-                 * requires 3 parameters: the image to draw, the x coordinate
-                 * to start drawing and the y coordinate to start drawing.
-                 * We're using our Resources helpers to refer to our images
-                 * so that we get the benefits of caching these images, since
-                 * we're using them over and over.
-                 */
                 ctx.drawImage(Resources.get(rowImages[row]), col * 101, row * 83);
             }
         }
 
         renderEntities();
+
+        // Draw UI Overlay
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.fillRect(0, 0, canvas.width, 50);
+        ctx.fillStyle = "white";
+        ctx.font = "20px Impact";
+        ctx.textAlign = "left";
+        ctx.fillText("SCORE: " + (typeof score !== 'undefined' ? score : 0), 10, 35);
+        ctx.textAlign = "center";
+        ctx.fillText("LEVEL: " + (typeof currentLevel !== 'undefined' ? currentLevel : 1), canvas.width / 2, 35);
+        ctx.textAlign = "right";
+        ctx.fillStyle = (typeof nukes !== 'undefined' && nukes > 0) ? "#ff4444" : "#888";
+        ctx.fillText("NUKES (SPACE): " + (typeof nukes !== 'undefined' ? nukes : 0), canvas.width - 10, 35);
+
+        // Flash Red on Hit
+        if (typeof flashTimer !== 'undefined' && flashTimer > 0) {
+            ctx.fillStyle = "rgba(255, 0, 0, " + (flashTimer) + ")";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Nuke Effect
+        if (typeof nukeEffectTimer !== 'undefined' && nukeEffectTimer > 0) {
+            ctx.fillStyle = "rgba(255, 200, 0, " + (nukeEffectTimer / 1.5) + ")";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "white";
+            ctx.font = "bold 60px Impact";
+            ctx.textAlign = "center";
+            ctx.fillText("TACTICAL NUKE!", canvas.width / 2, canvas.height / 2);
+        }
     }
 
     /* This function is called by the render function and is called on each game

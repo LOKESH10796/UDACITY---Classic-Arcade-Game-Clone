@@ -1,113 +1,136 @@
-// Enemies our player must avoid
-const Enemy = function (x, y) {
-    // Variables applied to each of our instances go here,
-    // we've provided one for you to get started
-    this.x = x;
-    this.y = y;
-    // The image/sprite for our enemies, this uses
-    // a helper we've provided to easily load images
-    this.sprite = "images/enemy-bug.png";
-};
+let currentLevel = 1;
+let nukes = 1;
+let score = 0;
+let nukeActive = false;
+let nukeEffectTimer = 0;
+let flashTimer = 0;
 
-// Update the enemy's position, required method for game
-// Parameter: dt, a time delta between ticks
-Enemy.prototype.update = function (dt) {
-    // You should multiply any movement by the dt parameter
-    // which will ensure the game runs at the same speed for
-    // all computers.
-    if (this.x < 550) {
-        this.x += 300 * dt;
-    } else {
-        this.x = -100;
+const BUG_Y_POSITIONS = [60, 145, 230, 315];
+
+class Enemy {
+    constructor(x, y, speed) {
+        this.x = x;
+        this.y = y;
+        this.speed = speed;
+        this.sprite = 'images/enemy-bug.png';
     }
 
-    // If the enemy and the player collides.
-    if (
-        this.x < player.x + 50 &&
-        this.x + 50 > player.x &&
-        this.y < player.y + 50 &&
-        this.y + 50 > player.y
-    ) {
-        alert("YOU LOST");
-        player.reset();
+    update(dt) {
+        if (nukeActive) {
+            // Nuke blows them away backwards quickly
+            this.x -= this.speed * dt * 3;
+            if (this.x < -200) {
+                this.x = Math.random() * 500 + 600;
+                this.y = BUG_Y_POSITIONS[Math.floor(Math.random() * BUG_Y_POSITIONS.length)];
+            }
+            return;
+        }
+
+        this.x += this.speed * dt;
+        if (this.x > 550) {
+            this.x = -150;
+            this.speed = 100 + Math.random() * (currentLevel * 50);
+            this.y = BUG_Y_POSITIONS[Math.floor(Math.random() * BUG_Y_POSITIONS.length)];
+        }
+
+        // Collision detection
+        if (
+            this.x < player.x + 50 &&
+            this.x + 50 > player.x &&
+            this.y < player.y + 50 &&
+            this.y + 50 > player.y
+        ) {
+            flashTimer = 1.0;
+            player.reset();
+            score = 0;
+            currentLevel = 1;
+            nukes = 1;
+            generateEnemies();
+        }
     }
-};
 
-// Draw the enemy on the screen, required method for game
-Enemy.prototype.render = function () {
-    ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
-};
+    render() {
+        ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
+    }
+}
 
-// Now write your own player class
-// This class requires an update(), render() and
-// a handleInput() method.
-const Player = function () {
-    this.x = 200;
-    this.y = 320;
-    this.sprite = "images/char-boy.png";
-};
-Player.prototype.update = function (dt) {
-    if (this.y < 20) {
-        alert("YOU WIN");
+class Player {
+    constructor() {
         this.reset();
+        this.sprite = 'images/char-boy.png';
     }
-};
-Player.prototype.render = function () {
-    ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
-};
-// Now instantiate your objects.
-// Place all enemy objects in an array called allEnemies
-// Place the player object in a variable called player
 
-const allEnemies = [
-    new Enemy(100, 60),
-    new Enemy(200, 60),
-    new Enemy(300, 60),
-    new Enemy(-100, 140),
-    new Enemy(-490, 140),
-    new Enemy(-890, 230)
-];
+    reset() {
+        this.x = 202;
+        this.y = 400;
+    }
 
+    update(dt) {
+        if (this.y < 20) {
+            score += currentLevel * 100;
+            currentLevel++;
+            if (currentLevel > 5) {
+                alert("YOU BEAT ALL 5 LEVELS! YOU ARE AN ARCADE LEGEND! Restarting...");
+                currentLevel = 1;
+                score = 0;
+                nukes = 1;
+            } else {
+                nukes++; 
+            }
+            this.reset();
+            generateEnemies();
+        }
+    }
+
+    render() {
+        ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
+    }
+
+    handleInput(key) {
+        if (nukeActive) return; // Cant move during nuke
+
+        switch (key) {
+            case 'up': if (this.y > 0) this.y -= 83; break;
+            case 'down': if (this.y < 400) this.y += 83; break;
+            case 'left': if (this.x > 0) this.x -= 101; break;
+            case 'right': if (this.x < 400) this.x += 101; break;
+            case 'space': 
+                if (nukes > 0 && !nukeActive) {
+                    nukes--;
+                    nukeActive = true;
+                    nukeEffectTimer = 1.5;
+                }
+                break;
+        }
+    }
+}
+
+let allEnemies = [];
 const player = new Player();
 
-Player.prototype.reset = function () {
-    this.x = 200;
-    this.y = 320;
-};
-
-// This listens for key presses and sends the keys to your
-// Player.handleInput() method. You don't need to modify this.
-document.addEventListener("keyup", function (e) {
-    let allowedKeys = {
-        37: "left",
-        38: "up",
-        39: "right",
-        40: "down"
-    };
-
-    player.handleInput(allowedKeys[e.keyCode]);
-});
-
-Player.prototype.handleInput = function (dt) {
-    switch (dt) {
-        case "up":
-            this.y -= 100;
-            break;
-        case "down":
-            if (this.y < 400) {
-                this.y += 100;
-            }
-            break;
-
-        case "left":
-            if (this.x > 0) {
-                this.x -= 50;
-            }
-            break;
-        case "right":
-            if (this.x < 400) {
-                this.x += 50;
-            }
-            break;
+function generateEnemies() {
+    allEnemies = [];
+    const numEnemies = 2 + currentLevel * 2; // Level 1 has 4 enemies, Level 5 has 12
+    for (let i = 0; i < numEnemies; i++) {
+        let x = Math.random() * -800;
+        let y = BUG_Y_POSITIONS[Math.floor(Math.random() * BUG_Y_POSITIONS.length)];
+        let speed = 100 + Math.random() * (currentLevel * 80);
+        allEnemies.push(new Enemy(x, y, speed));
     }
-};
+}
+
+generateEnemies();
+
+document.addEventListener('keydown', function(e) {
+    let allowedKeys = {
+        37: 'left',
+        38: 'up',
+        39: 'right',
+        40: 'down',
+        32: 'space'
+    };
+    if(allowedKeys[e.keyCode]) {
+        e.preventDefault();
+        player.handleInput(allowedKeys[e.keyCode]);
+    }
+});
